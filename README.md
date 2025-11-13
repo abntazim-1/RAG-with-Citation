@@ -16,22 +16,31 @@ This project integrates LlamaIndex, Ollama LLM, and Hugging Face Embeddings to b
 💻 Simple Web Interface – Clean frontend for chatting with your documents.
 
 🏗️ Project Structure
+```
 RAG-Chatbot-with-Citation/
 │
-├── data/                     # Folder containing user-uploaded or reference documents
-│   ├── doc1.pdf
-│   └── notes.txt
+├── data/                          # Folder containing user-uploaded or reference documents
+│   ├── sample_policies/           # Default document directory
+│   │   ├── *.pdf                 # PDF documents
+│   │   └── *.txt                  # Text documents
+│   └── vector_store/              # Vector store cache (auto-generated)
 │
-├── backend/
-│   └── app.py                # Flask-based backend API for RAG responses
+├── src/                           # Core source code modules
+│   ├── rag_pipeline.py           # Main RAG pipeline orchestrator
+│   ├── data_loader.py             # Document loading and chunking
+│   ├── embedding.py               # Embedding model initialization
+│   ├── llm_setup.py               # LLM (Ollama) configuration
+│   ├── query_engine.py             # Query engine and reranking
+│   └── utils.py                   # Logging and utility functions
 │
-├── rag_pipeline.py            # Main pipeline defining embeddings, LLM, and query engine
+├── logs/                          # Application logs
+│   ├── app.log                    # Main application log
+│   └── run_app.log                # Runtime log
 │
-├── run_app.py                 # Runs both backend + frontend interface
-│
-├── requirements.txt           # Required Python dependencies
-│
-└── README.md                  # Documentation (this file)
+├── run_app.py                     # Main entry point (Streamlit interface)
+├── requirements.txt                # Python dependencies
+└── README.md                       # This documentation
+```
 
 ⚙️ Setup Instructions
 1. Clone the Repository
@@ -63,12 +72,28 @@ Place any .txt, .pdf, or .md files inside the /data folder.
 These documents will serve as your knowledge base.
 
 6. Run the App
-python run_app.py
 
+Start the Streamlit application:
+```bash
+streamlit run run_app.py
+```
+
+Or use Python directly:
+```bash
+python run_app.py
+```
 
 Your chatbot will be available at:
 
-http://127.0.0.1:7860
+**http://127.0.0.1:8501** (Streamlit default port)
+
+The application will automatically:
+- Load documents from `data/sample_policies/`
+- Initialize the embedding model and vector index
+- Start the Ollama LLM connection
+- Launch the interactive web interface
+
+**Note:** Make sure Ollama is running before starting the app. You can verify by running `ollama list` in a separate terminal.
 
 🧠 RAG Architecture Overview
 
@@ -76,7 +101,7 @@ Retrieval-Augmented Generation (RAG) combines information retrieval with languag
 
 Document Ingestion – Local documents are loaded and preprocessed.
 
-Embedding Generation – Each document chunk is converted into a dense vector using sentence-transformers/all-MiniLM-L6-v2.
+Embedding Generation – Each document chunk is converted into a dense vector using `intfloat/e5-large-v2` (configurable in `src/embedding.py`).
 
 Vector Indexing – The vectors are stored in a VectorStoreIndex (from LlamaIndex).
 
@@ -88,15 +113,12 @@ Citation Mapping – The final output displays the sources used for the answer.
 
 🧩 Core Components
 
-LlamaIndex – Manages document indexing and retrieval.
-
-Langchain Embedding (HuggingFace) – Creates embeddings for semantic similarity.
-
-Ollama LLM – Runs a local large language model (like llama3.2).
-
-Flask – Lightweight backend for the API endpoints.
-
-Gradio Interface – Interactive web UI for chatting and viewing citations.
+- **LlamaIndex** – Manages document indexing, vector storage, and retrieval
+- **Langchain Embedding (HuggingFace)** – Creates embeddings for semantic similarity using `intfloat/e5-large-v2`
+- **Ollama LLM** – Runs a local large language model (default: `llama3.2:1b`)
+- **CrossEncoder Reranker** – Optional reranking using `cross-encoder/ms-marco-MiniLM-L-6-v2` for improved relevance
+- **Streamlit** – Interactive web UI for chatting and viewing citations
+- **Session-based Chat History** – Each user session maintains its own conversation history
 
 🧪 Example Usage
 
@@ -115,29 +137,63 @@ Sources:
 
 🛠️ Customization
 
-You can change the embedding model in rag_pipeline.py:
+**Change the Embedding Model**
 
-HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+Edit `src/embedding.py` or pass parameters to `RAGPipeline`:
+```python
+rag = RAGPipeline(
+    docs_folder="data/sample_policies",
+    embedding_model="sentence-transformers/all-mpnet-base-v2"  # Change here
+)
+```
 
+**Swap the LLM Model**
 
-Swap the LLM model to another Ollama model:
+Edit `src/llm_setup.py` or pass parameters:
+```python
+rag = RAGPipeline(
+    docs_folder="data/sample_policies",
+    llm_model="mistral:latest"  # Change here
+)
+```
 
-Ollama(model="mistral:latest")
+**Adjust Retrieval Parameters**
 
+Edit `src/rag_pipeline.py`:
+```python
+result = rag_pipeline.ask(query, top_k=10)  # Retrieve more documents
+```
 
-Adjust retrieval depth:
+**Disable Reranking**
 
-query_engine = index.as_query_engine(similarity_top_k=5)
+For faster responses (slightly lower quality):
+```python
+rag = RAGPipeline(
+    docs_folder="data/sample_policies",
+    use_rerank=False
+)
+```
 
-🤖 Future Enhancements
+🤖 Features & Notes
 
-✅ Multi-user session tracking
+✅ **Per-Session Chat History** – Each Streamlit session maintains its own conversation history, isolated from other users
 
-✅ Chat history with memory persistence
+✅ **Citation Support** – Every response includes source document citations with page numbers when available
 
-✅ Improved citation ranking
+✅ **Reranking** – Optional CrossEncoder reranking improves answer relevance
 
-✅ UI enhancements for better document management
+✅ **Offline Operation** – Fully local inference, no external API calls required
+
+✅ **Modular Architecture** – Clean separation of concerns for easy customization
+
+**Future Enhancements**
+
+- [ ] Persistent chat history across sessions (database storage)
+- [ ] Multi-user authentication and session management
+- [ ] Document upload interface
+- [ ] Export chat history to PDF/JSON
+- [ ] Advanced citation ranking algorithms
+- [ ] Support for more document formats (Word, Excel, etc.)
 
 👨‍💻 Author
 
