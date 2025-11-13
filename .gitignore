@@ -5,7 +5,6 @@ logs/
 models/
 notebooks/
 results/
-src/
 tests/
 .env
 .env.local
