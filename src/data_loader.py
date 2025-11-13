@@ -1,19 +1,77 @@
 import os
+from pathlib import Path
 import pdfplumber
 from llama_index.core import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from utils import setup_logger, log_exceptions, log_time
 
+import warnings
+warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater")
 # Setup logger
 logger = setup_logger("logs/data_loader.log")
+
+
+TEXT_EXTENSIONS = {
+    ".txt",
+    ".md",
+    ".markdown",
+    ".rst",
+    ".log",
+    ".csv",
+    ".tsv",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".html",
+    ".htm",
+}
+
+
+def _read_text_file(file_path: str, filename: str) -> str | None:
+    """Attempt to read a text file using a sequence of encodings."""
+    encodings = ("utf-8", "utf-16", "latin-1")
+    for encoding in encodings:
+        try:
+            with open(file_path, "r", encoding=encoding) as handle:
+                content = handle.read()
+                if content.strip():
+                    return content
+        except UnicodeDecodeError:
+            continue
+        except Exception as exc:  # pragma: no cover - logged for visibility
+            logger.error(f"Failed to load {filename} with encoding {encoding}: {exc}", exc_info=True)
+            return None
+
+    # Fallback: read as binary and decode ignoring errors
+    try:
+        with open(file_path, "rb") as handle:
+            raw = handle.read()
+        content = raw.decode("utf-8", errors="ignore")
+        if content.strip():
+            logger.warning(f"Decoded {filename} using utf-8 with ignored errors.")
+            return content
+    except Exception as exc:
+        logger.error(f"Failed to load {filename}: {exc}", exc_info=True)
+
+    return None
+
+
+def _is_supported_text_file(filename: str) -> bool:
+    """Determine whether a filename is a supported text format."""
+    extension = Path(filename).suffix.lower()
+    return extension in TEXT_EXTENSIONS or extension == ""
 
 
 @log_exceptions
 @log_time
 def load_documents(folder_path="data/sample_policies"):
     """
-    Load PDF and TXT documents from the folder, store text in Document objects with metadata.
-    Returns a list of Document objects.
+    Load PDF and text-based documents from the folder, storing text in Document objects with metadata.
+
+    Supported text formats include: txt, md, markdown, rst, log, csv, tsv, json, yaml, yml, ini, cfg, conf, html, htm.
     """
     docs = []
 
@@ -35,15 +93,16 @@ def load_documents(folder_path="data/sample_policies"):
                         if text and text.strip():
                             docs.append(Document(
                                 text=text,
-                                metadata={"source": filename, "page": i+1}
+                                metadata={"source": filename, "page": i + 1}
                             ))
                 logger.info(f"Loaded PDF: {filename}")
-            elif filename.lower().endswith(".txt"):
-                with open(file_path, "r", encoding="utf-8") as f:
-                    text = f.read()
-                    if text.strip():
-                        docs.append(Document(text=text, metadata={"source": filename}))
-                logger.info(f"Loaded TXT: {filename}")
+            elif _is_supported_text_file(filename):
+                text = _read_text_file(file_path, filename)
+                if text:
+                    docs.append(Document(text=text, metadata={"source": filename}))
+                    logger.info(f"Loaded text file: {filename}")
+                else:
+                    logger.warning(f"No readable text found in {filename}")
             else:
                 logger.warning(f"Unsupported file type skipped: {filename}")
         except Exception as e:
