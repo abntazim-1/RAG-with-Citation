@@ -1,0 +1,30 @@
+# Core Python dependencies
+torch
+transformers
+accelerate
+bitsandbytes
+
+
+# LangChain and related integrations
+llama-index
+langchain
+langchain-core
+langchain-community
+
+# Embedding models
+sentence-transformers
+
+# Vector store and index management
+faiss-cpu
+numpy
+
+# Text preprocessing
+tiktoken
+
+# Utility and environment support
+python-dotenv
+pydantic
+
+# Optional but recommended for cloud/deployment
+uvicorn
+fastapi
